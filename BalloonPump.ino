@@ -49,7 +49,7 @@ float windowStartTime2 =0;
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
-float Duration[ArraySize] = {120,120,90,90,90,90,90,30,30,30,30,45,45,45,45,45,90,90,90,90,90,60};  // ramp duration in minutes
+float Duration[ArraySize] = {60,60,30,30,30,30,30,30,30,30,30,45,45,45,45,45,90,90,90,90,90,60};  // ramp duration in minutes
 float setPoint[ArraySize] = {.25,.27,.28,.3,.32,.34,.36,.38,.39,.4,.41,.42,.43,.44,.45,.46,.465,.47,.45,.46,.43,0};   // pressures in psi
 float maxSetPoint = .45;  // Upper limit for any setpoint - 
 float Times[ArraySize];
