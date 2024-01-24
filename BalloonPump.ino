@@ -23,131 +23,167 @@
 
 #define PIN_INPUT 0
 #define RELAY_PIN 6
-#define ArraySize 3
 
-float Times[ArraySize] = {.5,.75,1.};
-float setPoint[ArraySize] = {200,600,.900};
-float startPoint = 0.;
+
 //Define Variables we'll be connecting to
 float setpoint;
 #include "command_buffer.h"
-//CCommandBuffer commandBuffer;
+CCommandBuffer commandBuffer;
 #include "commandProcessing.h"
 
-//Specify the links and initial tuning parameters
-double Kp=10, Ki=.01, Kd=0;
+//Specify the initial tuning parameters
+double Kp=20, Ki=.01, Kd=0;
 PID_v2 myPID( Kp, Ki, Kd, PID::Direct);
+int WindowSize = 250;
+unsigned long windowStartTime;
 
-float pmap(float p, float lowi, float highi, float lowo, float higho)
-{
-float remap = p*(higho-lowo)/(highi-lowi);
+float plow =0, phigh = .60, lowo = 0, higho = 1080;
+
+float pmap(float p)
+{// Convert real world values (psi) to control variables
+float remap = p*(higho-lowo)/(phigh-plow);
 return remap;
 }
+float windowStartTime2 =0;
+#define ArraySize 22
+//
+//  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
+//
+float Duration[ArraySize] = {120,120,90,90,90,90,90,30,30,30,30,45,45,45,45,45,90,90,90,90,90,60};  // ramp duration in minutes
+float setPoint[ArraySize] = {.25,.27,.28,.3,.32,.34,.36,.38,.39,.4,.41,.42,.43,.44,.45,.46,.465,.47,.45,.46,.43,0};   // pressures in psi
+float maxSetPoint = .45;  // Upper limit for any setpoint - 
+float Times[ArraySize];
+int ip = 11;      // to pick up in the middle of the duration array, set ip to the starying index
 
-
+float startPoint = .4;
 double setpt;
-int i = 1;
-float setPointFunc()
-{
-  //return 10.;
-  if (i > ArraySize)  return setPoint[ArraySize];
-  float timeMinute = (float)(millis()/(60*100))/10.;
-  Serial.print(" Time ");
-  Serial.println(timeMinute);
 
-  if (timeMinute > Times[i])
+bool firstTime = true;
+float setPointFunc()
+{// Ramp pressure up slowly
+  if (ip == ArraySize-1)  return pmap(setPoint[ArraySize-1]);
+
+  if (firstTime == true)
   {
-    return setPoint[i];
-    i++;
+      float windowStartTime2 = (float)((millis()-windowStartTime2)/1000ul)/60.;
+      firstTime = false;
+  }
+  float timeMinute = (float)((millis()-windowStartTime2)/1000ul)/60.;
+
+  float setptm = setPoint[ip];
+  float timeSwitch=0;
+  if (timeMinute > Times[ip] )
+  {
+
+    timeSwitch = timeMinute;
+    ip++;
+  }
+  else if(ip > 0 && timeMinute < Times[ip-1])  // Happens when restarting with ip > 0
+  {
+     timeMinute = Times[ip-1];
+  }
+  if( ip == ArraySize-1)
+  {
+    setptm = setPoint[ArraySize-1];
+  }
+  else if (ip == 0)
+  {
+     setptm = setPoint[0];
   }
   else
   {
-    return setPoint[i-1];
+    setptm = setPoint[ip-1] + (setPoint[ip] - setPoint[ip-1]) * (1.-(Times[ip]-timeMinute)/(Times[ip]-Times[ip-1]));
   }
-
-  return startPoint;
+  
+  if( setptm > maxSetPoint) setptm = maxSetPoint;
+  
+  return setptm;
 }
-
-int WindowSize = 1000;
-unsigned long windowStartTime;
-
+// Set pres0 to the value of press when the valves and/or top are open
+float pres0 = 0.;
 void setup()
 {
   Serial.begin(9600);
   //Serial.println(" Setup start ");
   presSetup();
-  setpoint = .45;
+  float press = pressure();  // Read the pressure
+  Serial.println(" Starting - See code documentation for setting pres0 ");
+  Serial.print(" Current presure reading: press= ");
+  Serial.println(press);
+  Serial.print(" Current value of pres0 = ");
+  Serial.println(pres0);
+  delay(15000);
+  
   pinMode(RELAY_PIN, OUTPUT);
    pinMode(LED_BUILTIN, OUTPUT);
 
-  //initialize the variables we're linked to
-  //Setpoint = setPointFunc();
-  setpt = pmap(setpoint, 0, .60, 0, 1000);
+  // set up times to switch
+  Times[0] = Duration[ip];  
+  for( int i=0;  i<ArraySize-1+ip; ++i)
+  {  
+    Times[i+1] = Times[i] + Duration[i+1+ip];
+
+  }
+  
+  setpt = setPointFunc();
+
+
   //tell the PID to range between 0 and the full window size
   //Serial.println(" PID start ");
   myPID.SetOutputLimits(0, WindowSize);
   myPID.Start(0,            // current input
-              0,         // current output
-              setpt);         // setpoint
+              0,            // current output
+              setpt);       // setpoint
 
   windowStartTime = millis();
-  //Serial.println(" Begin Loop ");
 
 }
-int iCount = 0;
+
+float input=0.;
+unsigned long previousMillis = 0;
+unsigned long interval = 2000;
 void loop()
 {
-  //Serial.println(" Read Serial ");
-    //
-  // command line interface
-  //
-  if( Serial.available() )
-  {
-    int inByte = Serial.read();
-    commandBuffer.handleInputChar( inByte );
+ 
+  
+  float press = pressure();  // Read the pressure
 
-    if( commandBuffer.endsWith("\r") || commandBuffer.endsWith("\n") )
-    {
-      processTerminalCommands();
-      commandBuffer.reset();
-    }
+  input = pmap(press);   // Convert the reading
+  setpoint = setPointFunc();
+  float stpt = pmap(setpoint);
+  float output = myPID.Run(input);     // call the controller function
+  myPID.Start(input,           // current input
+              output,          // current output
+              stpt); // setpoint
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) 
+  {
+    previousMillis = currentMillis;
+    Serial.print("Setpoint ");
+    Serial.print(setpoint );
+    Serial.print(",");
+    Serial.print(" Pump ");
+    Serial.print(output/300. );
+    Serial.print(",");
+    Serial.print(" Pressure ");
+    Serial.print(press);
+    Serial.print(",");
+    Serial.print(" Time ");
+    Serial.print(currentMillis/(1000*3600));
+    Serial.print(",");
+    Serial.print(" Index ");
+    Serial.println(ip);
   }
-  //delay(500);
-  //Setpoint = setPointFunc();
-  //Input = analogRead(PIN_INPUT);
-  //Input = pressure();
-  
-  float press = pressure();
-
-/*   if (++iCount % 10 == 0)
-  {
-    Serial.print(iCount);
-    Serial.print(" pressure ");
-    Serial.println(press);
-  } */
-
-  const double input = pmap(press, 0, .60, 0, 1000);
-  
-  const double output = myPID.Run(input);
-    Serial.print(setpoint*100.);
-    Serial.print("\t");
-    Serial.println(press*100.);
   /************************************************
    * turn the output pin on/off based on pid output
    ************************************************/
   while (millis() - windowStartTime > WindowSize) {
-    // time to shift the Relay Window
+    // time to shift the Relay 
 
     windowStartTime += WindowSize;
   }
   float diff = (float) (millis() - windowStartTime);
-    // if (iCount % 10 == 0)
-    // {
-    //   Serial.print(" out ");
-    //   Serial.print(output);
-    //   Serial.print(" diff ");
-    //   Serial.println(diff);
-    // }
+  
 
   if (output > diff)
     {digitalWrite(RELAY_PIN, HIGH);
@@ -156,4 +192,3 @@ void loop()
     {digitalWrite(RELAY_PIN, LOW);
     digitalWrite(LED_BUILTIN, LOW);}
 }
-

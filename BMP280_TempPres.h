@@ -107,6 +107,7 @@ void presSetup() {
 		while (1);
 	}
 
+
 	if (bmx280.isBME280())
 		Serial.println("sensor is a BME280");
 	else

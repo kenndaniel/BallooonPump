@@ -6,7 +6,6 @@
 // License: MIT
 //
 
-
 #include <stdlib.h>
 
 #define COMMAND_BUFFER_BUFFER_SIZE (32)

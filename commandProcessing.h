@@ -11,10 +11,9 @@ void processTerminalCommands()
     else
     {
     String stpt(ptr);
-    Setpoint = stpt.toFloat();
-
+    setpoint = stpt.toFloat();
     Serial.print(F("\nSetpoint updated \n"));
-    Serial.println(Setpoint);
+    Serial.println(setpoint);
     }
 
 
