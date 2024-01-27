@@ -47,7 +47,7 @@ int WindowSize = 250;
 unsigned long windowStartTime;
 
 float readAngle()
-{
+{ 
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
   Wire.endTransmission(false);
@@ -64,8 +64,7 @@ float readAngle()
   z = RAD_TO_DEG * (atan2(-yAng, -xAng) + PI);
 
   Serial.print("Angle of inclination in X axis = ");
-  Serial.print(x);
-  Serial.println((char)176);
+  Serial.println(x);
   return x;
 }
 
@@ -145,8 +144,17 @@ bool pressureError = false;
 void setup()
 {
   Serial.begin(9600);
+  Wire.begin();
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
 
   presBegin();
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_addr, 14, true);
   Serial.println(" Setup start ");
 
   Serial.println("Set initial atmospheric pressure to be subtracted from pressure measurements");
@@ -228,6 +236,7 @@ unsigned long previousMillis = 0;
 unsigned long interval = 2000;
 void loop()
 {
+
   if (pressureError == true)
     return;
   float press = pressure(); // Read the pressure
