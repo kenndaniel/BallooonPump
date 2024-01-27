@@ -55,6 +55,7 @@ void presSetup(bool restart)
 	{
 		zeroPres = pressure();
 		EEPROM.put(eeAddress, zeroPres);
+		Serial.println( "Atmospheric pressure has been set.");
 	}
 
 	return; // set the zero pressure on setup

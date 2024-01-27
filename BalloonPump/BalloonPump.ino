@@ -18,8 +18,10 @@
 #include <EEPROM.h>
 #include <PID_v2.h>
 #include "BMP280_TempPres.h"
-//#include <SerialCommands.h>
-//#include "commands.h"
+// #include <string>
+using namespace std;
+// #include <SerialCommands.h>
+// #include "commands.h"
 
 // Gyro variables
 const int MPU_addr = 0x68;
@@ -137,7 +139,7 @@ float setPointFunc()
 }
 // Set pres0 to the value of press when the valves and/or top are open
 float pres0 = 0.;
-//void readCommand()
+// void readCommand()
 
 bool pressureError = false;
 void setup()
@@ -146,19 +148,41 @@ void setup()
 
   presBegin();
   Serial.println(" Setup start ");
-  // setupCommands();
 
-  // Serial.println("Set initial atmospheric pressure to be subtracted from pressure measurements");
-  // while (!correct_command)
-  // {
-  //   Serial.println("\nType: 'n' to indicate starting a new balloon with zero pressure\n"
-  //                  "Type 'r' to indicate restarting with a partial pressure balloon\n");
-  //   serial_commands_.ReadSerial();
-  // }
+  Serial.println("Set initial atmospheric pressure to be subtracted from pressure measurements");
+
+  Serial.println(F("\nType: 'new' to indicate starting a new balloon with zero pressure\n"
+                 "Type 'restart' to indicate restarting with a partial pressure balloon\n"
+                 "If you type the wrong value, remove power, release the pressure, start again and select new\n"
+                 " Then quickly close all valves."));
+
+  bool validInput = false;
+  while (true)
+  {
+    while (Serial.available() == 0)
+    {
+    }
+    String cmdInput = Serial.readString();
+    if (cmdInput.length() > 0)
+    {
+      if (cmdInput.startsWith(String('r')) )
+      { // Restarting a balloon with partial pressure
+        presSetup(true);
+        break;
+      }
+      else if (cmdInput.startsWith(String('n')) )
+      { // Stating from zero
+        presSetup(false);
+        break;
+      }
+    }
+
+    Serial.println("Please choose a valid selection either new or restart ");
+  }
 
   Serial.print(" The maximum pressure is set to  ");
   Serial.println(maxSetPoint);
-  presSetup(false);
+
   float press = pressure(); // Read the pressure
   Serial.print(" Current presure reading: press= ");
   Serial.println(press);
@@ -167,7 +191,8 @@ void setup()
   { // set the initial set point
     ip = i;
     if (setPoint[i] > press)
-    { ip = i-1;
+    {
+      ip = i - 1;
       break;
     }
   }
@@ -203,7 +228,8 @@ unsigned long previousMillis = 0;
 unsigned long interval = 2000;
 void loop()
 {
-  if(pressureError == true) return;
+  if (pressureError == true)
+    return;
   float press = pressure(); // Read the pressure
 
   input = pmap(press); // Convert the reading
