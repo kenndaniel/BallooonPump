@@ -63,10 +63,17 @@ float readAngle()
   y = RAD_TO_DEG * (atan2(-xAng, -zAng) + PI);
   z = RAD_TO_DEG * (atan2(-yAng, -xAng) + PI);
 
-  Serial.print("Angle of inclination in X axis = ");
-  Serial.println(x);
+
   return x;
 }
+
+void printAngle()
+{
+    Serial.print("Angle  ");
+    Serial.print(readAngle());
+}
+
+
 
 float plow = 0, phigh = .60, lowo = 0, higho = 1080;
 
@@ -77,18 +84,20 @@ float pmap(float p)
 }
 
 float windowStartTime2 = 0;
-#define ArraySize 22
+#define ArraySize 37
 //
 //  TAKE THE CAP OFF THE BOTTLE WHEN STARTING UP TO CALIBRATE THE PRESSURE SENSOR TO ZERO
 //
-float Duration[ArraySize] = {60, 60, 30, 30, 30, 30, 30, 30, 30, 30, 30, 45, 45, 45, 45, 45, 90, 90, 90, 90, 90, 60};                    // ramp duration in minutes
-float setPoint[ArraySize] = {.25, .27, .28, .3, .32, .34, .36, .38, .39, .4, .41, .42, .43, .44, .45, .46, .465, .47, .45, .46, .43, 0}; // pressures in psi
-
+float Duration[ArraySize] =  {60, 60, 40, 40, 40, 40, 40, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,30,30,30,30,30,30,30,30,30,30,30,30,30};                   
+ // ramp duration in minutes
+float setPoint[ArraySize] = {.25, .27, .28, .3, .32, .34, .36, .38, .39, .4, .41, .42, .43, .44, .45, .46, .47, .48, .49, .50, .51, .52, .53,.54,.55,.56,.57,.58,.59,.60,.61,.62,.63,.64,.65,.66}; 
+//pressures in psi
+float setPointAngle = 183.3;  // smaller numbers make a larger balloon
 float Times[ArraySize];
 int ip = 0; // set ip to the starying index for restarts
 
 // Upper limit for any setpoint -
-float maxSetPoint = .55;
+float maxSetPoint = .6;
 
 float startPoint = .0;
 double setpt;
@@ -97,7 +106,7 @@ bool firstTime = true;
 float setPointFunc()
 { // Ramp pressure up slowly
   if (ip == ArraySize - 1)
-    return pmap(setPoint[ArraySize - 1]);
+    return setPoint[ArraySize - 1];
 
   if (firstTime == true)
   {
@@ -136,6 +145,8 @@ float setPointFunc()
 
   return setptm;
 }
+
+// ********************************* Setup *****************************************************
 // Set pres0 to the value of press when the valves and/or top are open
 float pres0 = 0.;
 // void readCommand()
@@ -231,6 +242,7 @@ void setup()
   windowStartTime = millis();
 }
 
+//**************************** LOOP ****************************
 float input = 0.;
 unsigned long previousMillis = 0;
 unsigned long interval = 2000;
@@ -239,6 +251,16 @@ void loop()
 
   if (pressureError == true)
     return;
+
+  float angle = readAngle();
+ if (angle < setPointAngle)  // check the angle
+    {
+      maxSetPoint = setPoint[ip]; // decrease the pressure setpoint
+      digitalWrite(RELAY_PIN, LOW);
+      digitalWrite(LED_BUILTIN, LOW);
+      return;
+    }
+
   float press = pressure(); // Read the pressure
 
   input = pmap(press); // Convert the reading
@@ -251,9 +273,10 @@ void loop()
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval)
   {
-    float angle = readAngle();
+   
+    printAngle();
     previousMillis = currentMillis;
-    Serial.print("Setpoint ");
+    Serial.print(" Setpoint ");
     Serial.print(setpoint);
     Serial.print(",");
     Serial.print(" Pump ");
