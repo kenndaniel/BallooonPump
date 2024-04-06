@@ -97,7 +97,7 @@ float Times[ArraySize];
 int ip = 0; // set ip to the starying index for restarts
 
 // Upper limit for any setpoint -
-float maxSetPoint = .6;
+float maxSetPoint = .65;
 
 float startPoint = .0;
 double setpt;
@@ -246,6 +246,10 @@ void setup()
 float input = 0.;
 unsigned long previousMillis = 0;
 unsigned long interval = 2000;
+  float currentOut = 0.; 
+  float previousOut = 0.;
+  int iCnt=0;
+  
 void loop()
 {
 
@@ -256,6 +260,8 @@ void loop()
  if (angle < setPointAngle)  // check the angle
     {
       maxSetPoint = setPoint[ip]; // decrease the pressure setpoint
+      iCnt--;
+      if (iCnt<0 ) iCnt=0;
       digitalWrite(RELAY_PIN, LOW);
       digitalWrite(LED_BUILTIN, LOW);
       return;
@@ -271,6 +277,7 @@ void loop()
               output,              // current output
               stpt);               // setpoint
   unsigned long currentMillis = millis();
+  currentOut = output/300.;
   if (currentMillis - previousMillis >= interval)
   {
    
@@ -290,6 +297,18 @@ void loop()
     Serial.print(",");
     Serial.print(" Index ");
     Serial.println(ip);
+    Serial.println(previousOut); 
+    if ((currentOut + previousOut) < .1) 
+    {
+      Serial.println(iCnt);
+      iCnt++;
+      if( iCnt > 30)
+      {
+        ip++;
+        iCnt=0;
+      }
+     }
+    previousOut = currentOut;
   }
   /************************************************
    * turn the output pin on/off based on pid output
